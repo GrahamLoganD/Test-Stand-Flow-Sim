@@ -1,6 +1,6 @@
 import math
 import CoolProp
-import Hybrid_Functions
+import hybrid_functions
 
 Pc = 400  # chamber pressure in psi
 Cf = 1  # thrust coefficient
@@ -25,7 +25,7 @@ T = 294
 G0 = mdoto / (math.pi * r ** 2) * 703.1  # lbm/(s*in2) to kg/(s*m2)
 rb = ((9.3368 * 10 ** -8) * G0 ** 1.6386) * 3.281  # m/s to ft/s
 t = 0
-Ab = Hybrid_Functions.calculate_burning_area(R, r, L, rb, t) / 144  # in2 to ft2
-provided_mdotf = Hybrid_Functions.calc_mdotf(
+Ab = hybrid_functions.calculate_burning_area(R, r, L, rb, t) / 144  # in2 to ft2
+provided_mdotf = hybrid_functions.calc_mdotf(
     103.57, Ab, rb)  # google says 57.43 lb/ft3
 print(provided_mdotf, "provided mdotf")
