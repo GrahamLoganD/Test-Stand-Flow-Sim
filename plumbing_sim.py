@@ -31,7 +31,7 @@ Cd = 0.7
 rports = 0.03
 numports = 25
 Ainj = math.pi * rports ** 2 * numports
-reqdeltaP = (mdot / (Cd * Ainj)) ** 2 / (2 * (CoolProp.PropsSI('D',
+reqdeltaP = (mdot / (Cd * Ainj)) ** 2 / (2 * (CoolProp.CoolProp.PropsSI('D',
                                                                'T', T, 'P', P3 * 6895, fluid) / 16.018 * 32.2))
 Pc = P4 - reqdeltaP
 # print results
