@@ -66,28 +66,32 @@ def calc_thrust(mdoto, mdotf, Isp):
     return F
 
 
-def calc_deltaP(mdot, Cv, T, Pin):
-    """Calculates pressure drop across valve.
+def calculate_pressure_drop(m_dot, c_v, t, p_in, fluid):
+    """Calculates the pressure drop across a valve.
 
     Keyword arguments:
-    mdot    --  
-    Cv      --  
-    T       --  
-    Pin     --  
+    m_dot   --  mass flowrate (kg/s)
+    c_v     --  flow coefficient
+    t       --  temperature (K)
+    p_in    --  inlet pressure (Pa)
+    fluid   --  fluid name
     """
 
-    # calculate density in kg/m3 then convert to lbm/ft3
-    dwater = CoolProp.PropsSI('D', 'T|liquid', 294, 'P', Pin, 'Water') / 16.018
+    WATER_DENSITY = 1000  # (kg/m^3)
 
-    dNOx = CoolProp.PropsSI('D', 'T|liquid', T, 'P',
-                            Pin, 'NitrousOxide') / 16.018
+    fluid_density = CoolProp.PropsSI('D', 'T|liquid', t, 'P',
+                                     p_in, fluid)  # Fluid density (kg/m^3)
 
-    # calculate specific gravity
-    SG = dNOx / dwater
+    fluid_specific_gravity = fluid_density / \
+        WATER_DENSITY  # Fluid specific gravity
 
-    # calculate flowrate from mdot
-    Q = mdot / dNOx * 448.8
+    q = m_dot / fluid_density  # Volume flowrate (m^3/s)
 
-    deltaP = (Q * math.sqrt(SG) / Cv) ** 2
+    q_gal_per_min = q * 15850  # Volume flowrate (gal/min)
 
-    return (deltaP)
+    delta_p_psi = (q_gal_per_min * math.sqrt(fluid_specific_gravity) /
+                   c_v) ** 2  # Pressure drop (psi)
+
+    delta_p = delta_p_psi * 6895  # Pressure drop (Pa)
+
+    return delta_p
