@@ -31,9 +31,9 @@ def calculate_injector_oxidizer_flowrate(Cd, Ainj, dNOx, deltaP):
     deltaP  --  
     """
 
-    mdot = Cd * A * math.sqrt(2 * dNOx * deltaP)
+    mdot = Cd * Ainj * math.sqrt(2 * dNOx * deltaP)
 
-    return mdoto
+    return mdot
 
 
 def calc_mdotf(dfuel, Ab, rb):
@@ -79,7 +79,7 @@ def calculate_pressure_drop(m_dot, c_v, t, p_in, fluid):
 
     WATER_DENSITY = 1000  # (kg/m^3)
 
-    fluid_density = CoolProp.CoolProp.PropsSI('D', 'T|liquid', t, 'P',
+    fluid_density = CoolProp.CoolProp.PropsSI('D', 'T', t, 'P',
                                      p_in, fluid)  # Fluid density (kg/m^3)
 
     fluid_specific_gravity = fluid_density / \
