@@ -9,33 +9,34 @@ ATMOSPHERIC_TEMPERATURE_F = 68  # Surrounding atmospheric temperature (F)
 INITIAL_BOTTLE_WEIGHT_LBF = 10  # Weight of fluid in the bottle (lbf)
 INITIAL_BOTTLE_PRESSURE_PSI = 750  # Pressure inside the bottle (psig)
 
+PIPE_INNER_DIAMETER = 0.00707  # Inner diamater of the pipe (m)
+
 # Flow coefficients
-flow_coefficient_tank_valve = 0.41 # https://catalog.circlevalve.com/item/check-valves/200-series-check-valves-0-to-3000-psig/cs-259a-1pp
-flow_coefficient_check_valve = 1.6
+TANK_VALVE_FLOW_COEFFICIENT = 0.41 # https://catalog.circlevalve.com/item/check-valves/200-series-check-valves-0-to-3000-psig/cs-259a-1pp
+CHECK_VALVE_FLOW_COEFFICIENT = 1.6
 
-loss_coefficient_tee = 0.9  # Line flow, threaded
-loss_coefficient_ball_valve = 0.05  # Fully open
-
-pipe_inner_diameter = 0.00707  # Inner diamater of the pipe (m)
+# Loss coefficients
+TEE_LOSS_COEFFICIENT = 0.9  # Line flow, threaded
+BALL_VALVE_LOSS_COEFFICIENT = 0.05  # Fully open
 
 # Surrounding atmospheric temperature (K)
-atmospheric_temperature = (ATMOSPHERIC_TEMPERATURE_F - 32) * 5 / 9 + 273.15
+ATMOSPHERIC_TEMPERATURE = (ATMOSPHERIC_TEMPERATURE_F - 32) * 5 / 9 + 273.15
 
 # Mass of fluid in the bottle (kg)
-bottle_mass = INITIAL_BOTTLE_WEIGHT_LBF * 0.45359237
+INITIAL_BOTTLE_MASS = INITIAL_BOTTLE_WEIGHT_LBF * 0.45359237
 
 # Temperature inside the bottle (K)
-bottle_temperature = atmospheric_temperature
-bottle_pressure = INITIAL_BOTTLE_PRESSURE_PSI * 6895  # Pressure inside the bottle (Pa)
+BOTTLE_TEMPERATURE = ATMOSPHERIC_TEMPERATURE
+INITIAL_BOTTLE_PRESSURE = INITIAL_BOTTLE_PRESSURE_PSI * 6895  # Pressure inside the bottle (Pa)
 
-print("The bottle phase is", CoolProp.CoolProp.PhaseSI('P', bottle_pressure, 'T', bottle_temperature, FLUID),
-      "and the exit phase is", CoolProp.CoolProp.PhaseSI('P', ATMOSPHERIC_PRESSURE, 'T', atmospheric_temperature, FLUID))
+print("The bottle phase is", CoolProp.CoolProp.PhaseSI('P', INITIAL_BOTTLE_PRESSURE, 'T', BOTTLE_TEMPERATURE, FLUID),
+      "and the exit phase is", CoolProp.CoolProp.PhaseSI('P', ATMOSPHERIC_PRESSURE, 'T', ATMOSPHERIC_TEMPERATURE, FLUID))
 
 # Isentropic incompressible flow assumption
-isentropic_incompressible_flow_velocity = math.sqrt(2 / CoolProp.CoolProp.PropsSI('D', 'T', atmospheric_temperature, 'P',
-                                                                                  (bottle_pressure - ATMOSPHERIC_PRESSURE) / 2, FLUID) * (bottle_pressure - ATMOSPHERIC_PRESSURE))
-isentropic_incompressible_mass_flowrate = math.pi * (pipe_inner_diameter / 2) ** 2 * isentropic_incompressible_flow_velocity * CoolProp.CoolProp.PropsSI('D', 'T', atmospheric_temperature, 'P',
-                                                                                                                                                         (bottle_pressure - ATMOSPHERIC_PRESSURE) / 2, FLUID)
+isentropic_incompressible_flow_velocity = math.sqrt(2 / CoolProp.CoolProp.PropsSI('D', 'T', ATMOSPHERIC_TEMPERATURE, 'P',
+                                                                                  (INITIAL_BOTTLE_PRESSURE - ATMOSPHERIC_PRESSURE) / 2, FLUID) * (INITIAL_BOTTLE_PRESSURE - ATMOSPHERIC_PRESSURE))
+isentropic_incompressible_mass_flowrate = math.pi * (PIPE_INNER_DIAMETER / 2) ** 2 * isentropic_incompressible_flow_velocity * CoolProp.CoolProp.PropsSI('D', 'T', ATMOSPHERIC_TEMPERATURE, 'P',
+                                                                                                                                                         (INITIAL_BOTTLE_PRESSURE - ATMOSPHERIC_PRESSURE) / 2, FLUID)
 print("The isentropic incompressible flowrate is",
       round(isentropic_incompressible_mass_flowrate, 3) / 0.45359237, "lbm/s")
 
