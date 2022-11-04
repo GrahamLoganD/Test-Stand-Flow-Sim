@@ -102,6 +102,16 @@ def calculate_mass_flowrate_from_velocity(velocity, density, pipe_area):
     return pipe_area * velocity * density
 
 
+def convert_kg_per_s_to_lbm_per_s(mass_flowrate):
+    """Converts mass flowrate in kg/s into lbm/s.
+
+    Keyword arguments:
+    mass_flowrate   --  mass flowrate of the fluid (kg/s)
+    """
+
+    return mass_flowrate / 0.45359237
+
+
 def calculate_specific_gravity(density):
     """Calculates the specific gravity of a fluid.
 
@@ -180,11 +190,13 @@ def calculate_total_pressure_drop(mass_flowrate, temperature, bottle_pressure):
     bottle_pressure --  pressure in the bottle (Pa)
     """
 
-    tank_valve_pressure = calculate_pressure_after_valve(mass_flowrate, temperature, bottle_pressure, TANK_VALVE_FLOW_COEFFICIENT)
+    tank_valve_pressure = calculate_pressure_after_valve(
+        mass_flowrate, temperature, bottle_pressure, TANK_VALVE_FLOW_COEFFICIENT)
 
     tee_1_pressure = tank_valve_pressure
 
-    check_valve_pressure = calculate_pressure_after_valve(mass_flowrate, temperature, tee_1_pressure, CHECK_VALVE_FLOW_COEFFICIENT)
+    check_valve_pressure = calculate_pressure_after_valve(
+        mass_flowrate, temperature, tee_1_pressure, CHECK_VALVE_FLOW_COEFFICIENT)
 
     tee_2_pressure = check_valve_pressure
 
@@ -194,6 +206,7 @@ def calculate_total_pressure_drop(mass_flowrate, temperature, bottle_pressure):
 
     exit_pressure = tee_3_pressure
 
+    print(bottle_pressure - exit_pressure)
     return bottle_pressure - exit_pressure
 
 
@@ -227,10 +240,10 @@ def main():
     average_flow_temperature = (
         BOTTLE_TEMPERATURE + ATMOSPHERIC_TEMPERATURE) / 2
 
-    # Isentropic incompressible flow assumption
     average_flow_density = CoolProp.CoolProp.PropsSI(
         'D', 'T', average_flow_temperature, 'P', average_flow_pressure, FLUID)
 
+    # Isentropic incompressible flow assumption
     isentropic_incompressible_flow_velocity = bernoulli_equation_exit_velocity(
         INITIAL_BOTTLE_ABSOLUTE_PRESSURE, 0, ATMOSPHERIC_PRESSURE, average_flow_density)
 
@@ -238,15 +251,16 @@ def main():
         isentropic_incompressible_flow_velocity, average_flow_density, PIPE_AREA)
 
     print("The isentropic incompressible flowrate is",
-          round(isentropic_incompressible_mass_flowrate, 3) / 0.45359237, "lbm/s")
+          round(convert_kg_per_s_to_lbm_per_s(isentropic_incompressible_mass_flowrate), 3), "lbm/s")
 
     # Incompressible flow assumption
-
     mass_flowrate_upper = isentropic_incompressible_mass_flowrate
-    mass_flowrate_lower = 0
+    mass_flowrate_lower = 0.0000001
 
-    pressure_drop_upper = calculate_total_pressure_drop(mass_flowrate_upper, BOTTLE_TEMPERATURE, INITIAL_BOTTLE_ABSOLUTE_PRESSURE)
-    pressure_drop_lower = calculate_total_pressure_drop(mass_flowrate_lower, BOTTLE_TEMPERATURE, INITIAL_BOTTLE_ABSOLUTE_PRESSURE)
+    pressure_drop_upper = calculate_total_pressure_drop(
+        mass_flowrate_upper, BOTTLE_TEMPERATURE, INITIAL_BOTTLE_ABSOLUTE_PRESSURE)
+    pressure_drop_lower = calculate_total_pressure_drop(
+        mass_flowrate_lower, BOTTLE_TEMPERATURE, INITIAL_BOTTLE_ABSOLUTE_PRESSURE)
 
     real_pressure_drop = INITIAL_BOTTLE_ABSOLUTE_PRESSURE - ATMOSPHERIC_PRESSURE
 
