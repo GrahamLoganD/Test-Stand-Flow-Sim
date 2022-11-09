@@ -228,7 +228,7 @@ def calculate_total_pressure_drop_error(mass_flowrate, temperature, bottle_press
     return calculate_total_pressure_drop(mass_flowrate, temperature, bottle_pressure) - real_pressure_drop
 
 
-def calculate_incompressible_mass_flowrate(bottle_absolute_pressure, bottle_temperature, atmospheric_temperature, pipe_area, real_pressure_drop):
+def calculate_incompressible_mass_flowrate(bottle_absolute_pressure, bottle_temperature, atmospheric_temperature, pipe_area):
     """Calculates the incompressible mass flowrate through the plumbing system.
 
     Keyword arguments:
@@ -236,7 +236,6 @@ def calculate_incompressible_mass_flowrate(bottle_absolute_pressure, bottle_temp
     bottle_temperature          --  the temperature in the bottle (K)
     atmospheric_temperature     --  the temperature of the atmosphere (K)
     pipe_area                   --  the area of the pipe (m^2)
-    real_pressure_drop          --
     """
     real_pressure_drop = bottle_absolute_pressure - ATMOSPHERIC_PRESSURE
 
