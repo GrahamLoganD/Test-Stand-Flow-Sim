@@ -280,8 +280,6 @@ def main():
     INITIAL_BOTTLE_ABSOLUTE_PRESSURE = convert_gauge_pressure_to_absolute(
         INITIAL_BOTTLE_GAUGE_PRESSURE)
 
-    INITIAL_REAL_PRESSURE_DROP = INITIAL_BOTTLE_ABSOLUTE_PRESSURE - ATMOSPHERIC_PRESSURE
-
     # Cross-sectional area of the pipe (m^2)
     PIPE_AREA = calculate_pipe_area(PIPE_INNER_DIAMETER)
 
@@ -310,7 +308,7 @@ def main():
     # Incompressible flow assumption
 
     incompressible_mass_flowrate = calculate_incompressible_mass_flowrate(
-        INITIAL_BOTTLE_ABSOLUTE_PRESSURE, BOTTLE_TEMPERATURE, ATMOSPHERIC_TEMPERATURE, PIPE_AREA, INITIAL_REAL_PRESSURE_DROP)
+        INITIAL_BOTTLE_ABSOLUTE_PRESSURE, BOTTLE_TEMPERATURE, ATMOSPHERIC_TEMPERATURE, PIPE_AREA)
 
     incompressible_pressure_drop = calculate_total_pressure_drop(
         incompressible_mass_flowrate, BOTTLE_TEMPERATURE, INITIAL_BOTTLE_ABSOLUTE_PRESSURE)
