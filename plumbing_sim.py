@@ -1,13 +1,15 @@
-import CoolProp
+import CoolProp.CoolProp
 import math
 import scipy.optimize
 import scipy.integrate
-scipy.optimize.bisect
-scipy.integrate.ode
+import pandas
+import seaborn
+import matplotlib.pyplot
+
 FLUID = 'NITROUSOXIDE'
 
 INITIAL_BOTTLE_WEIGHT_LBF = 10  # Weight of fluid in the bottle (lbf)
-INITIAL_BOTTLE_GAUGE_PRESSURE_PSI = 750  # Pressure inside the bottle (psig)
+INITIAL_BOTTLE_GAUGE_PRESSURE_PSI = 950  # Pressure inside the bottle (psig)
 
 ATMOSPHERIC_PRESSURE = 101325  # Surrounding atmospheric pressure (Pa)
 ATMOSPHERIC_TEMPERATURE_F = 68  # Surrounding atmospheric temperature (F)
@@ -42,6 +44,16 @@ def convert_lb_to_kg(mass_lb):
     """
 
     return 0.45359237 * mass_lb
+
+
+def convert_kg_to_lbm(mass_kg):
+    """Converts mass in kilograms into pounds.
+
+    Keyword arguments:
+    mass_kg --  mass (kg)
+    """
+
+    return mass_kg / 0.45359237
 
 
 def convert_psi_to_pa(pressure_psi):
@@ -84,6 +96,8 @@ def bernoulli_equation_exit_velocity(pressure_in, velocity_in, pressure_out, den
     pressure_in --  exit pressure (Pa)
     density     --  density of the fluid (kg/m^3)
     """
+    if not pressure_in > pressure_out:
+        return 0
 
     # The energy per unit mass of the fluid at the entry point
     energy_in = pressure_in + 1 / 2 * density * velocity_in ** 2
@@ -146,6 +160,8 @@ def calculate_flow_coefficient_pressure_drop(flow_coefficient, volume_flowrate, 
     specific gravity    --  specific gravity of the fluid
     """
 
+    if not volume_flowrate > 0:
+        return 0
     volume_flowrate_gpm = convert_cubic_meters_per_second_to_gpm(
         volume_flowrate)
     return convert_psi_to_pa(((flow_coefficient / volume_flowrate_gpm) ** 2 / specific_gravity) ** -1)
@@ -172,10 +188,9 @@ def calculate_pressure_after_valve(mass_flowrate, temperature, pressure, flow_co
     flow_coefficient    --  flow coefficient of the valve
     """
 
-    if pressure < 0:
+    if not pressure > 0:
         return 0
-    valve_density = CoolProp.CoolProp.PropsSI('D', 'T', temperature, 'P',
-                                                   pressure, FLUID)
+    valve_density = CoolProp.CoolProp.PropsSI('D', 'T|gas', temperature, 'P', pressure, FLUID)
     valve_volume_flowrate = calculate_volume_flowrate(
         mass_flowrate, valve_density)
     valve_specific_gravity = calculate_specific_gravity(
@@ -228,25 +243,22 @@ def calculate_total_pressure_drop_error(mass_flowrate, temperature, bottle_press
     return calculate_total_pressure_drop(mass_flowrate, temperature, bottle_pressure) - real_pressure_drop
 
 
-def calculate_incompressible_mass_flowrate(bottle_absolute_pressure, bottle_temperature, atmospheric_temperature, pipe_area):
+def calculate_incompressible_mass_flowrate(bottle_absolute_pressure, temperature, pipe_area):
     """Calculates the incompressible mass flowrate through the plumbing system.
 
     Keyword arguments:
     bottle_absolute_pressure    --  the absolute pressure inside the bottle (Pa)
-    bottle_temperature          --  the temperature in the bottle (K)
-    atmospheric_temperature     --  the temperature of the atmosphere (K)
+    temperature          --  the temperature in the bottle (K)
     pipe_area                   --  the area of the pipe (m^2)
     """
+
     real_pressure_drop = bottle_absolute_pressure - ATMOSPHERIC_PRESSURE
 
     average_flow_pressure = (
         bottle_absolute_pressure + ATMOSPHERIC_PRESSURE) / 2
 
-    average_flow_temperature = (
-        bottle_temperature + atmospheric_temperature) / 2
-
     average_flow_density = CoolProp.CoolProp.PropsSI(
-        'D', 'T', average_flow_temperature, 'P', average_flow_pressure, FLUID)
+        'D', 'T', temperature, 'P', average_flow_pressure, FLUID)
 
     # Isentropic incompressible flow assumption
     isentropic_incompressible_flow_velocity = bernoulli_equation_exit_velocity(
@@ -256,10 +268,43 @@ def calculate_incompressible_mass_flowrate(bottle_absolute_pressure, bottle_temp
         isentropic_incompressible_flow_velocity, average_flow_density, pipe_area)
 
     mass_flowrate_upper = isentropic_incompressible_mass_flowrate
-    mass_flowrate_lower = 0.0000001
+    mass_flowrate_lower = 0
+
+    if not mass_flowrate_upper > mass_flowrate_lower:
+        return 0
 
     return scipy.optimize.bisect(
-        calculate_total_pressure_drop_error, mass_flowrate_lower, mass_flowrate_upper, args=(bottle_temperature, bottle_absolute_pressure, real_pressure_drop))
+        calculate_total_pressure_drop_error, mass_flowrate_lower, mass_flowrate_upper, args=(temperature, bottle_absolute_pressure, real_pressure_drop))
+
+
+def calculate_bottle_pressure(bottle_volume, bottle_mass, temperature):
+    """Calculates the pressure inside the NOX bottle.
+
+    Keyword arguments:
+    bottle_volume   --  the internal volume of the bottle (m^3)
+    bottle_mass     --  the current mass of fluid in the bottle (kg)
+    temperature     --  the temperature in the bottle (K)
+    """
+
+    if bottle_mass < 0:
+        return 0
+    density = bottle_mass / bottle_volume
+    return CoolProp.CoolProp.PropsSI(
+        'P', 'D', density, 'T', temperature, FLUID)
+
+
+def calculate_incompressible_mass_flowrate_from_mass(bottle_mass, bottle_volume, temperature, pipe_area):
+    """Calculates the incompressible mass flowrate through the plumbing system.
+
+    Keyword arguments:
+    bottle_mass                 --  the mass of fluid in the bottle (kg)
+    temperature                 --  the temperature in the bottle (K)
+    pipe_area                   --  the area of the pipe (m^2)
+    """
+
+    bottle_absolute_pressure = calculate_bottle_pressure(bottle_volume,
+                                                         bottle_mass[0], temperature)
+    return calculate_incompressible_mass_flowrate(bottle_absolute_pressure, temperature, pipe_area)
 
 
 def main():
@@ -279,6 +324,9 @@ def main():
     # Absolute pressure inside the bottle (Pa)
     INITIAL_BOTTLE_ABSOLUTE_PRESSURE = convert_gauge_pressure_to_absolute(
         INITIAL_BOTTLE_GAUGE_PRESSURE)
+
+    BOTTLE_VOLUME = INITIAL_BOTTLE_MASS / CoolProp.CoolProp.PropsSI(
+        'D', 'P', INITIAL_BOTTLE_ABSOLUTE_PRESSURE, 'T', BOTTLE_TEMPERATURE, FLUID)
 
     # Cross-sectional area of the pipe (m^2)
     PIPE_AREA = calculate_pipe_area(PIPE_INNER_DIAMETER)
@@ -306,9 +354,8 @@ def main():
           round(convert_kg_per_s_to_lbm_per_s(isentropic_incompressible_mass_flowrate), 3), "lbm/s")
 
     # Incompressible flow assumption
-
     incompressible_mass_flowrate = calculate_incompressible_mass_flowrate(
-        INITIAL_BOTTLE_ABSOLUTE_PRESSURE, BOTTLE_TEMPERATURE, ATMOSPHERIC_TEMPERATURE, PIPE_AREA)
+        INITIAL_BOTTLE_ABSOLUTE_PRESSURE, BOTTLE_TEMPERATURE, PIPE_AREA)
 
     incompressible_pressure_drop = calculate_total_pressure_drop(
         incompressible_mass_flowrate, BOTTLE_TEMPERATURE, INITIAL_BOTTLE_ABSOLUTE_PRESSURE)
@@ -318,39 +365,21 @@ def main():
     print("Pressure compare", round(incompressible_pressure_drop, 3) / (10 ** 3), "kPa to",
           round(INITIAL_BOTTLE_ABSOLUTE_PRESSURE - ATMOSPHERIC_PRESSURE, 3) / (10 ** 3), "kPa")
 
-    #sol = scipy.integrate.odeint(func=lambda t, y: scipy.optimize.bisect(
-    #    calculate_total_pressure_drop_error, mass_flowrate_lower, mass_flowrate_upper, args=(BOTTLE_TEMPERATURE, y, REAL_PRESSURE_DROP)), t=[t0, t], y0=x0, tfirst=True
+    final_time = INITIAL_BOTTLE_MASS / incompressible_mass_flowrate * 1.5
+    solution = scipy.integrate.solve_ivp(fun=lambda t, y: -calculate_incompressible_mass_flowrate_from_mass(
+        y, BOTTLE_VOLUME, BOTTLE_TEMPERATURE, PIPE_AREA), t_span=(0, final_time), y0=[INITIAL_BOTTLE_MASS])
+
+    print(solution.t)
+    print(solution.y[0])
+
+    y_lbm = []
+    for mass in solution.y[0]:
+        y_lbm.append(convert_kg_to_lbm(mass))
+
+    seaborn.set()
+    seaborn.lineplot(x=solution.t, y=y_lbm)
+    matplotlib.pyplot.show()
 
 
 if __name__ == "__main__":
     main()
-
-""""
-# Calculate Pressure Drop Out of Tank S/O
-deltaP_tank = hybrid_functions.calculate_pressure_drop(
-    mdot, .41, T, Ptank * 6895, FLUID)
-P1 = Ptank - deltaP_tank
-# Calculate Pressure Drop Across HOV-01
-deltaP_HOV01 = hybrid_functions.calculate_pressure_drop(
-    mdot, 6, T, P1 * 6895, FLUID)
-P2 = P1 - deltaP_HOV01
-# Calculate Pressure Drop Across CV-01
-deltaP_CV01 = hybrid_functions.calculate_pressure_drop(
-    mdot, 3.1, T, P2 * 6895, FLUID)
-P3 = P2 - deltaP_CV01
-# Calculate Pressure Drop Across HOV-02
-deltaP_HOV02 = hybrid_functions.calculate_pressure_drop(
-    mdot, 6, T, P3 * 6895, FLUID)
-P4 = P3 - deltaP_HOV02
-
-Cd = 0.7
-rports = 0.03
-numports = 25
-Ainj = math.pi * rports ** 2 * numports
-reqdeltaP = (mdot / (Cd * Ainj)) ** 2 / (2 * (CoolProp.CoolProp.PropsSI('D',
-                                                                        'T', T, 'P', P3 * 6895, FLUID) / 16.018 * 32.2))
-Pc = P4 - reqdeltaP
-# print results
-print(P1, P2, P3, P4, Pc)
-print(reqdeltaP)
-"""
