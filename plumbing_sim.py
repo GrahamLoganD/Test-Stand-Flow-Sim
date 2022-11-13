@@ -190,7 +190,9 @@ def calculate_pressure_after_valve(mass_flowrate, temperature, pressure, flow_co
 
     if not pressure > 0:
         return 0
-    valve_density = CoolProp.CoolProp.PropsSI('D', 'T|gas', temperature, 'P', pressure, FLUID)
+
+    valve_density = CoolProp.CoolProp.PropsSI('D', 'T', temperature, 'P', pressure, 'Q', 0, FLUID)
+
     valve_volume_flowrate = calculate_volume_flowrate(
         mass_flowrate, valve_density)
     valve_specific_gravity = calculate_specific_gravity(
