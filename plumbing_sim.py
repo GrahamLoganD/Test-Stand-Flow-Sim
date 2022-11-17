@@ -9,7 +9,7 @@ import matplotlib.pyplot
 FLUID = 'NITROUSOXIDE'
 
 INITIAL_BOTTLE_WEIGHT_LBF = 10  # Weight of fluid in the bottle (lbf)
-INITIAL_BOTTLE_GAUGE_PRESSURE_PSI = 950  # Pressure inside the bottle (psig)
+INITIAL_BOTTLE_GAUGE_PRESSURE_PSI = 750  # Pressure inside the bottle (psig)
 
 ATMOSPHERIC_PRESSURE = 101325  # Surrounding atmospheric pressure (Pa)
 ATMOSPHERIC_TEMPERATURE_F = 68  # Surrounding atmospheric temperature (F)
@@ -191,7 +191,7 @@ def calculate_pressure_after_valve(mass_flowrate, temperature, pressure, flow_co
     if not pressure > 0:
         return 0
 
-    valve_density = CoolProp.CoolProp.PropsSI('D', 'T', temperature, 'P', pressure, 'Q', 0, FLUID)
+    valve_density = CoolProp.CoolProp.PropsSI('D', 'T|gas', temperature, 'P', pressure, FLUID)
 
     valve_volume_flowrate = calculate_volume_flowrate(
         mass_flowrate, valve_density)
