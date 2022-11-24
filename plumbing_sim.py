@@ -8,7 +8,7 @@ import scipy.integrate
 import scipy.stats
 import seaborn
 
-STEP_SIZE = 0.1  # Spacing in seconds of recorded measurements
+STEP_SIZE = 1  # Spacing in seconds of recorded measurements
 
 FLUID = 'NITROUSOXIDE'
 
