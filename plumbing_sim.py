@@ -1,18 +1,22 @@
 import CoolProp.CoolProp
+import numpy
 import math
+import matplotlib.pyplot
+import pandas
 import scipy.optimize
 import scipy.integrate
-import pandas
+import scipy.stats
 import seaborn
-import matplotlib.pyplot
+
+STEP_SIZE = 0.1  # Spacing in seconds of recorded measurements
 
 FLUID = 'NITROUSOXIDE'
 
 INITIAL_BOTTLE_WEIGHT_LBF = 10  # Weight of fluid in the bottle (lbf)
-INITIAL_BOTTLE_GAUGE_PRESSURE_PSI = 750  # Pressure inside the bottle (psig)
+INITIAL_BOTTLE_GAUGE_PRESSURE_PSI = 650  # Pressure inside the bottle (psig)
 
-ATMOSPHERIC_PRESSURE = 101325  # Surrounding atmospheric pressure (Pa)
-ATMOSPHERIC_TEMPERATURE_F = 68  # Surrounding atmospheric temperature (F)
+ATMOSPHERIC_PRESSURE = 103081.67  # Surrounding atmospheric pressure (Pa)
+ATMOSPHERIC_TEMPERATURE_F = 38  # Surrounding atmospheric temperature (F)
 
 PIPE_INNER_DIAMETER = 0.00707  # Inner diamater of the pipe (m)
 
@@ -66,6 +70,16 @@ def convert_psi_to_pa(pressure_psi):
     return 6.894757e3 * pressure_psi
 
 
+def convert_pa_to_psi(pressure_pa):
+    """Converts pressure in pascals into pounds per square inch.
+
+    Keyword arguments:
+    pressure_ps    --  pressure (pa)
+    """
+
+    return pressure_pa / 6.894757e3 
+
+
 def convert_gauge_pressure_to_absolute(pressure):
     """Converts gauge pressure in pascals into absolute pressure.
 
@@ -75,6 +89,17 @@ def convert_gauge_pressure_to_absolute(pressure):
     """
 
     return pressure + ATMOSPHERIC_PRESSURE
+
+
+def convert_absolute_pressure_to_gauge(pressure):
+    """Converts absolute pressure in pascals into gauge pressure.
+
+    Keyword arguments:
+    pressure                --  pressure (Pa)
+    atmospheric_pressure    --  atmospheric pressure (Pa)
+    """
+
+    return pressure - ATMOSPHERIC_PRESSURE
 
 
 def calculate_pipe_area(inner_diameter):
@@ -191,7 +216,12 @@ def calculate_pressure_after_valve(mass_flowrate, temperature, pressure, flow_co
     if not pressure > 0:
         return 0
 
-    valve_density = CoolProp.CoolProp.PropsSI('D', 'T|gas', temperature, 'P', pressure, FLUID)
+    try:
+        valve_density = CoolProp.CoolProp.PropsSI(
+            'D', 'T', temperature, 'P', pressure, FLUID)
+    except:
+        valve_density = CoolProp.CoolProp.PropsSI(
+            'D', 'T|liquid', temperature, 'P', pressure, FLUID)
 
     valve_volume_flowrate = calculate_volume_flowrate(
         mass_flowrate, valve_density)
@@ -304,8 +334,8 @@ def calculate_incompressible_mass_flowrate_from_mass(bottle_mass, bottle_volume,
     pipe_area                   --  the area of the pipe (m^2)
     """
 
-    bottle_absolute_pressure = calculate_bottle_pressure(bottle_volume,
-                                                         bottle_mass[0], temperature)
+    bottle_absolute_pressure = calculate_bottle_pressure(
+        bottle_volume, bottle_mass[0], temperature)
     return calculate_incompressible_mass_flowrate(bottle_absolute_pressure, temperature, pipe_area)
 
 
@@ -367,19 +397,42 @@ def main():
     print("Pressure compare", round(incompressible_pressure_drop, 3) / (10 ** 3), "kPa to",
           round(INITIAL_BOTTLE_ABSOLUTE_PRESSURE - ATMOSPHERIC_PRESSURE, 3) / (10 ** 3), "kPa")
 
-    final_time = INITIAL_BOTTLE_MASS / incompressible_mass_flowrate * 1.5
+    final_time = INITIAL_BOTTLE_MASS / incompressible_mass_flowrate * 2
     solution = scipy.integrate.solve_ivp(fun=lambda t, y: -calculate_incompressible_mass_flowrate_from_mass(
-        y, BOTTLE_VOLUME, BOTTLE_TEMPERATURE, PIPE_AREA), t_span=(0, final_time), y0=[INITIAL_BOTTLE_MASS])
+        y, BOTTLE_VOLUME, BOTTLE_TEMPERATURE, PIPE_AREA), t_span=(0, final_time), y0=[INITIAL_BOTTLE_MASS], max_step=STEP_SIZE)
 
-    print(solution.t)
-    print(solution.y[0])
+    bottle_mass_list = solution.y[0]
 
-    y_lbm = []
-    for mass in solution.y[0]:
-        y_lbm.append(convert_kg_to_lbm(mass))
+    y_bottle_mass = []
+    y_bottle_pressure = []
+    for bottle_mass in bottle_mass_list:
+        y_bottle_mass.append(convert_kg_to_lbm(bottle_mass))
+        y_bottle_pressure.append(convert_pa_to_psi(convert_absolute_pressure_to_gauge(calculate_bottle_pressure(BOTTLE_VOLUME, bottle_mass, BOTTLE_TEMPERATURE))))
 
-    seaborn.set()
-    seaborn.lineplot(x=solution.t, y=y_lbm)
+    y_mass_flowrate = []
+    i = 0
+    while i < len(solution.y[0]):
+        if i == 0:
+            y_mass_flowrate.append(convert_kg_to_lbm(-scipy.stats.linregress(x=solution.t[i:i+2], y=bottle_mass_list[i:i+2]).slope))
+        elif i == (len(solution.y[0]) - 1):
+            y_mass_flowrate.append(convert_kg_to_lbm(-scipy.stats.linregress(x=solution.t[i-2:i], y=bottle_mass_list[i-2:i]).slope))
+        else:
+            y_mass_flowrate.append(convert_kg_to_lbm(-scipy.stats.linregress(x=solution.t[i-1:i+1], y=bottle_mass_list[i-1:i+1]).slope))
+
+        i = i + 1
+
+    df = pandas.DataFrame(data={'Time (s)': solution.t, 'Bottle Fluid Mass (lbm)': y_bottle_mass, 'Mass Flowrate (lbm/s)': y_mass_flowrate, 'Bottle Gauge Pressure (psi)': y_bottle_pressure})
+    print(df)
+
+    matplotlib.pyplot.figure()
+    seaborn.lineplot(x='Time (s)', y='Bottle Fluid Mass (lbm)', data=df)
+
+    matplotlib.pyplot.figure()
+    seaborn.lineplot(x='Time (s)', y='Mass Flowrate (lbm/s)', data=df)
+
+    matplotlib.pyplot.figure()
+    seaborn.lineplot(x='Time (s)', y='Bottle Gauge Pressure (psi)', data=df)
+
     matplotlib.pyplot.show()
 
 
