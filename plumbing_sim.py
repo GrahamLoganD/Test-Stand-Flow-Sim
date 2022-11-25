@@ -28,165 +28,222 @@ CHECK_VALVE_FLOW_COEFFICIENT = 1.6
 # Loss coefficients
 TEE_LOSS_COEFFICIENT = 0.9  # Line flow, threaded
 BALL_VALVE_LOSS_COEFFICIENT = 0.05  # Fully open
+EXIT_LOSS_COEFFICIENT = 1
 
 
 def convert_f_to_k(temperature_f):
     """Converts temperature in degrees Fahrenheit into kelvins.
 
     Keyword arguments:
-    temperature_f   --  temperature (f)
+    temperature_f   -- temperature (f)
     """
 
-    return (temperature_f + 459.67) / 1.8
+    temperature = (temperature_f + 459.67) / 1.8
+    return temperature
+
+
+# Surrounding atmospheric temperature (K)
+TEMPERATURE = convert_f_to_k(ATMOSPHERIC_TEMPERATURE_F)
 
 
 def convert_lb_to_kg(mass_lb):
     """Converts mass in pounds into kilograms.
 
     Keyword arguments:
-    mass_lb --  mass (lb)
+    mass_lb -- mass (lb)
     """
 
-    return 0.45359237 * mass_lb
+    mass = 0.45359237 * mass_lb
+    return mass
 
 
-def convert_kg_to_lbm(mass_kg):
-    """Converts mass in kilograms into pounds.
-
-    Keyword arguments:
-    mass_kg --  mass (kg)
-    """
-
-    return mass_kg / 0.45359237
+# Mass of fluid in the bottle (kg)
+INITIAL_BOTTLE_MASS = convert_lb_to_kg(INITIAL_BOTTLE_WEIGHT_LBF)
 
 
 def convert_psi_to_pa(pressure_psi):
     """Converts pressure in pounds per square inch into pascals.
 
     Keyword arguments:
-    pressure_psi    --  pressure (psi)
+    pressure_psi    -- pressure (psi)
     """
 
-    return 6.894757e3 * pressure_psi
+    pressure = 6.894757e3 * pressure_psi
+    return pressure
 
 
-def convert_pa_to_psi(pressure_pa):
-    """Converts pressure in pascals into pounds per square inch.
-
-    Keyword arguments:
-    pressure_ps    --  pressure (pa)
-    """
-
-    return pressure_pa / 6.894757e3 
+# Gauge pressure inside the bottle (Pa)
+INITIAL_BOTTLE_GAUGE_PRESSURE = convert_psi_to_pa(
+    INITIAL_BOTTLE_GAUGE_PRESSURE_PSI)
 
 
-def convert_gauge_pressure_to_absolute(pressure):
+def convert_gauge_pressure_to_absolute(gauge_pressure):
     """Converts gauge pressure in pascals into absolute pressure.
 
     Keyword arguments:
-    pressure                --  pressure (Pa)
-    atmospheric_pressure    --  atmospheric pressure (Pa)
+    gauge_pressure  -- gauge pressure (Pa)
     """
 
-    return pressure + ATMOSPHERIC_PRESSURE
+    pressure = gauge_pressure + ATMOSPHERIC_PRESSURE
+    return pressure
 
 
-def convert_absolute_pressure_to_gauge(pressure):
-    """Converts absolute pressure in pascals into gauge pressure.
+# Absolute pressure inside the bottle (Pa)
+INITIAL_BOTTLE_PRESSURE = convert_gauge_pressure_to_absolute(
+    INITIAL_BOTTLE_GAUGE_PRESSURE)
 
-    Keyword arguments:
-    pressure                --  pressure (Pa)
-    atmospheric_pressure    --  atmospheric pressure (Pa)
-    """
+# Density of the fluid (kg/m^3)
+INITIAL_FLUID_DENSITY = CoolProp.CoolProp.PropsSI(
+    'D', 'P', INITIAL_BOTTLE_PRESSURE, 'T', TEMPERATURE, FLUID)
 
-    return pressure - ATMOSPHERIC_PRESSURE
+# Volume of the bottle (m^3)
+BOTTLE_VOLUME = INITIAL_BOTTLE_MASS / INITIAL_FLUID_DENSITY
 
 
 def calculate_pipe_area(inner_diameter):
     """Calculates the cross-sectional area of the pipe.
 
     Keyword arguments:
-    inner_diameter  --  inner diameter of the pipe (m)
+    inner_diameter  -- inner diameter of the pipe (m)
     """
 
-    return math.pi * (inner_diameter / 2) ** 2
+    pipe_area = math.pi * (inner_diameter / 2) ** 2
+    return pipe_area
+
+
+# Cross-sectional area of the pipe (m^2)
+PIPE_AREA = calculate_pipe_area(PIPE_INNER_DIAMETER)
 
 
 def bernoulli_equation_exit_velocity(pressure_in, velocity_in, pressure_out, density):
     """Calculates the exit flow velocity in m/s using the Bernoulli equation, assuming the fluid is incompressible and there are no friction losses.
 
     Keyword arguments:
-    pressure_in --  entry pressure (Pa)
-    velocity_in --  entry velocity (m/s)
-    pressure_in --  exit pressure (Pa)
-    density     --  density of the fluid (kg/m^3)
+    pressure_in -- entry pressure (Pa)
+    velocity_in -- entry velocity (m/s)
+    pressure_in -- exit pressure (Pa)
+    density     -- density of the fluid (kg/m^3)
     """
     if not pressure_in > pressure_out:
+        print(
+            f"pressure_in, pressure_out ERROR IN bernoulli_equation_exit_velocity ({pressure_in}, {pressure_out})")
         return 0
 
     # The energy per unit mass of the fluid at the entry point
     energy_in = pressure_in + 1 / 2 * density * velocity_in ** 2
 
     # The velocity of the fluid at the exit point
-    return ((energy_in - pressure_out) * 2 / density) ** 0.5
+    velocity_out = ((energy_in - pressure_out) * 2 / density) ** 0.5
+    return velocity_out
 
 
-def calculate_mass_flowrate_from_velocity(velocity, density, pipe_area):
-    """Calculates the mass flowrate of a fluid.
+def calculate_mass_flowrate_from_velocity(velocity, density):
+    """Calculates the mass flowrate of the fluid.
 
     Keyword arguments:
-    velocity    --  flow velocity of the fluid (m/s)
-    density     --  density of the fluid (kg/m^3)
-    pipe_area   --  cross-sectional area of the fluid flow (m^2)
+    velocity    -- flow velocity of the fluid (m/s)
+    density     -- density of the fluid (kg/m^3)
     """
 
-    return pipe_area * velocity * density
+    mass_flowrate = PIPE_AREA * velocity * density
+    return mass_flowrate
 
 
 def convert_kg_per_s_to_lbm_per_s(mass_flowrate):
     """Converts mass flowrate in kg/s into lbm/s.
 
     Keyword arguments:
-    mass_flowrate   --  mass flowrate of the fluid (kg/s)
+    mass_flowrate   -- mass flowrate of the fluid (kg/s)
     """
 
-    return mass_flowrate / 0.45359237
+    mass_flowrate_lbm_per_s = mass_flowrate / 0.45359237
+    return mass_flowrate_lbm_per_s
+
+
+def convert_pa_to_psi(pressure):
+    """Converts pressure in pascals into pounds per square inch.
+
+    Keyword arguments:
+    pressure -- pressure (pa)
+    """
+
+    pressure_psi = pressure / 6.894757e3
+    return pressure_psi
+
+
+def convert_kg_to_lbm(mass):
+    """Converts mass in kilograms into pounds.
+
+    Keyword arguments:
+    mass -- mass (kg)
+    """
+
+    mass_lb = mass / 0.45359237
+    return mass_lb
+
+
+def convert_absolute_pressure_to_gauge(pressure):
+    """Converts absolute pressure in pascals into gauge pressure.
+
+    Keyword arguments:
+    pressure    -- pressure (Pa)
+    """
+
+    gauge_pressure = pressure - ATMOSPHERIC_PRESSURE
+    return gauge_pressure
+
+
+def calculate_velocity_from_mass_flowrate(mass_flowrate, density):
+    """Calculates the velocity in m/s of the fluid.
+
+    Keyword arguments:
+    mass_flowrate   -- flowrate of the fluid (kg/s)
+    density         -- density of the fluid (kg/m^3)
+    """
+
+    velocity = mass_flowrate / density / PIPE_AREA
+    return velocity
 
 
 def calculate_specific_gravity(density):
     """Calculates the specific gravity of a fluid.
 
     Keyword arguments:
-    density --  fluid density (kg/m^3)
+    density -- fluid density (kg/m^3)
     """
 
     WATER_DENSITY = 1000  # (kg/m^3)
 
-    return density / \
+    specific_gravity = density / \
         WATER_DENSITY
+    return specific_gravity
 
 
 def convert_cubic_meters_per_second_to_gpm(volume_flowrate):
     """Converts volume flowrate in m^3/s into gal/min.
 
     Keyword arguments:
-    volume_flowrate --  volume flowrate (m^3/s)
+    volume_flowrate -- volume flowrate (m^3/s)
     """
 
-    return 1.585e4 * volume_flowrate
+    volume_flowrate_gpm = 1.585e4 * volume_flowrate
+    return volume_flowrate_gpm
 
 
 def calculate_flow_coefficient_pressure_drop(flow_coefficient, volume_flowrate, specific_gravity):
     """Calculates the pressure drop across a valve using the flow coefficient.
 
     Keyword arguments:
-    flow_coefficient    --  flow coefficient of the valve
-    volume_flowrate     --  rate of flow of the fluid (m^3/s)
-    specific gravity    --  specific gravity of the fluid
+    flow_coefficient    -- flow coefficient of the valve
+    volume_flowrate     -- rate of flow of the fluid (m^3/s)
+    specific gravity    -- specific gravity of the fluid
     """
 
     if not volume_flowrate > 0:
+        print(
+            f"volume_flowrate ERROR IN calculate_flow_coefficient_pressure_drop ({volume_flowrate})")
         return 0
+
     volume_flowrate_gpm = convert_cubic_meters_per_second_to_gpm(
         volume_flowrate)
     return convert_psi_to_pa(((flow_coefficient / volume_flowrate_gpm) ** 2 / specific_gravity) ** -1)
@@ -196,32 +253,33 @@ def calculate_volume_flowrate(mass_flowrate, density):
     """Calculates the volume flowrate from the mass flowrate and the density of the fluid.
 
     Keyword arguments:
-    mass_flowrate   --  rate of flow of the fluid (kg/s)
-    density         --  fluid density (kg/m^3)
+    mass_flowrate   -- rate of flow of the fluid (kg/s)
+    density         -- fluid density (kg/m^3)
     """
 
     return mass_flowrate / density
 
 
-def calculate_pressure_after_valve(mass_flowrate, temperature, pressure, flow_coefficient):
+def calculate_valve_pressure_drop(mass_flowrate, pressure, flow_coefficient):
     """Calculates the pressure in the fluid after traveling through the valve.
 
     Keyword arguments:
-    mass_flowrate       --  rate of flow of the fluid (kg/s)
-    temperature         --  temperature of the fluid (K)
-    pressure            --  pressure of the fluid before the valve (Pa)
-    flow_coefficient    --  flow coefficient of the valve
+    mass_flowrate       -- rate of flow of the fluid (kg/s)
+    temperature         -- temperature of the fluid (K)
+    pressure            -- pressure of the fluid before the valve (Pa)
+    flow_coefficient    -- flow coefficient of the valve
     """
 
     if not pressure > 0:
+        print(f"pressure ERROR IN calculate_valve_pressure_drop ({pressure})")
         return 0
 
     try:
         valve_density = CoolProp.CoolProp.PropsSI(
-            'D', 'T', temperature, 'P', pressure, FLUID)
+            'D', 'T', TEMPERATURE, 'P', pressure, FLUID)
     except:
         valve_density = CoolProp.CoolProp.PropsSI(
-            'D', 'T|liquid', temperature, 'P', pressure, FLUID)
+            'D', 'T|liquid', TEMPERATURE, 'P', pressure, FLUID)
 
     valve_volume_flowrate = calculate_volume_flowrate(
         mass_flowrate, valve_density)
@@ -231,197 +289,290 @@ def calculate_pressure_after_valve(mass_flowrate, temperature, pressure, flow_co
     valve_pressure_drop = calculate_flow_coefficient_pressure_drop(
         flow_coefficient, valve_volume_flowrate, valve_specific_gravity)
 
-    return pressure - valve_pressure_drop
+    return valve_pressure_drop
 
 
-def calculate_total_pressure_drop(mass_flowrate, temperature, bottle_pressure):
-    """Calculates the total pressure drop through the plumbing system.
+def calculate_pressure_drop_from_head_loss(mass_flowrate, pressure, head_loss_coefficient):
+    """Calculates the head loss in meters for a pipe component.
 
     Keyword arguments:
-    mass_flowrate   --  rate of flow of the fluid (kg/s)
-    temperature     --  temperature of the fluid (K)
-    bottle_pressure --  pressure in the bottle (Pa)
+    mass_flowrate           -- rate of flow of the fluid (kg/s)
+    temperature             -- temperature of the fluid (K)
+    pressure                -- pressure of the fluid before the valve (Pa)
+    head_loss_coefficient   -- the loss coefficient for the pipe component
     """
 
-    tank_valve_pressure = calculate_pressure_after_valve(
-        mass_flowrate, temperature, bottle_pressure, TANK_VALVE_FLOW_COEFFICIENT)
+    if not pressure > 0:
+        print(
+            f"pressure ERROR IN calculate_pressure_drop_from_head_loss ({pressure})")
+        return 0
 
-    tee_1_pressure = tank_valve_pressure
+    try:
+        density = CoolProp.CoolProp.PropsSI(
+            'D', 'T', TEMPERATURE, 'P', pressure, FLUID)
+    except:
+        density = CoolProp.CoolProp.PropsSI(
+            'D', 'T|liquid', TEMPERATURE, 'P', pressure, FLUID)
 
-    check_valve_pressure = calculate_pressure_after_valve(
-        mass_flowrate, temperature, tee_1_pressure, CHECK_VALVE_FLOW_COEFFICIENT)
+    flow_velocity = calculate_velocity_from_mass_flowrate(
+        mass_flowrate, density)
 
-    tee_2_pressure = check_valve_pressure
-
-    ball_valve_pressure = tee_2_pressure
-
-    tee_3_pressure = ball_valve_pressure
-
-    exit_pressure = tee_3_pressure
-
-    return bottle_pressure - exit_pressure
+    return head_loss_coefficient * 1 / 2 * density * flow_velocity ** 2
 
 
-def calculate_total_pressure_drop_error(mass_flowrate, temperature, bottle_pressure, real_pressure_drop):
+def calculate_all_pressure_drops(mass_flowrate, bottle_pressure):
+    """Calculates the pressure drop across each component.
+
+    Keyword arguments:
+    mass_flowrate   -- rate of flow of the fluid (kg/s)
+    temperature     -- temperature of the fluid (K)
+    bottle_pressure -- pressure in the bottle (Pa)
+    """
+
+    if not mass_flowrate > 0:
+        print(
+            f"mass_flowrate ERROR IN calculate_all_pressure_drops ({mass_flowrate})")
+        return {'total': 0, 'tank valve': 0, 'tee 1': 0, 'check valve': 0, 'tee 2': 0, 'ball valve': 0, 'tee 3': 0, 'exit': 0}
+
+    if not bottle_pressure > 0:
+        print(
+            f"bottle_pressure ERROR IN calculate_all_pressure_drops ({bottle_pressure})")
+        return {'total': 0, 'tank valve': 0, 'tee 1': 0, 'check valve': 0, 'tee 2': 0, 'ball valve': 0, 'tee 3': 0, 'exit': 0}
+
+    tank_valve_pressure_drop = calculate_valve_pressure_drop(
+        mass_flowrate, bottle_pressure, TANK_VALVE_FLOW_COEFFICIENT)
+    tank_valve_pressure = bottle_pressure - tank_valve_pressure_drop
+
+    if not tank_valve_pressure > 0:
+        tee_1_pressure_drop = calculate_pressure_drop_from_head_loss(
+            mass_flowrate, bottle_pressure, TEE_LOSS_COEFFICIENT)
+    else:
+        tee_1_pressure_drop = calculate_pressure_drop_from_head_loss(
+            mass_flowrate, tank_valve_pressure, TEE_LOSS_COEFFICIENT)
+    tee_1_pressure = tank_valve_pressure - tee_1_pressure_drop
+
+    if not tee_1_pressure > 0:
+        check_valve_pressure_drop = calculate_valve_pressure_drop(
+            mass_flowrate, bottle_pressure, CHECK_VALVE_FLOW_COEFFICIENT)
+    else:
+        check_valve_pressure_drop = calculate_valve_pressure_drop(
+            mass_flowrate, tee_1_pressure, CHECK_VALVE_FLOW_COEFFICIENT)
+    check_valve_pressure = tee_1_pressure_drop - check_valve_pressure_drop
+
+    if not check_valve_pressure > 0:
+        tee_2_pressure_drop = calculate_pressure_drop_from_head_loss(
+            mass_flowrate, bottle_pressure, TEE_LOSS_COEFFICIENT)
+    else:
+        tee_2_pressure_drop = calculate_pressure_drop_from_head_loss(
+            mass_flowrate, check_valve_pressure, TEE_LOSS_COEFFICIENT)
+    tee_2_pressure = check_valve_pressure - tee_2_pressure_drop
+
+    if not tee_2_pressure > 0:
+        ball_valve_pressure_drop = calculate_pressure_drop_from_head_loss(
+            mass_flowrate, bottle_pressure, BALL_VALVE_LOSS_COEFFICIENT)
+    else:
+        ball_valve_pressure_drop = calculate_pressure_drop_from_head_loss(
+            mass_flowrate, tee_2_pressure, BALL_VALVE_LOSS_COEFFICIENT)
+    ball_valve_pressure = tee_2_pressure - ball_valve_pressure_drop
+
+    if not ball_valve_pressure > 0:
+        tee_3_pressure_drop = calculate_pressure_drop_from_head_loss(
+            mass_flowrate, bottle_pressure, TEE_LOSS_COEFFICIENT)
+    else:
+        tee_3_pressure_drop = calculate_pressure_drop_from_head_loss(
+            mass_flowrate, ball_valve_pressure, TEE_LOSS_COEFFICIENT)
+    tee_3_pressure = ball_valve_pressure - tee_3_pressure_drop
+
+    if not tee_3_pressure > 0:
+        exit_pressure_drop = calculate_pressure_drop_from_head_loss(
+            mass_flowrate, bottle_pressure, EXIT_LOSS_COEFFICIENT)
+    else:
+        exit_pressure_drop = calculate_pressure_drop_from_head_loss(
+            mass_flowrate, tee_3_pressure, EXIT_LOSS_COEFFICIENT)
+    exit_pressure = tee_3_pressure - exit_pressure_drop
+
+    total_pressure_drop = bottle_pressure - exit_pressure
+
+    return {'total': total_pressure_drop, 'tank valve': tank_valve_pressure_drop, 'tee 1': tee_1_pressure_drop, 'check valve': check_valve_pressure_drop, 'tee 2': tee_2_pressure_drop, 'ball valve': ball_valve_pressure_drop, 'tee 3': tee_3_pressure_drop, 'exit': exit_pressure_drop}
+
+
+def calculate_total_pressure_drop_error(mass_flowrate, bottle_pressure, real_pressure_drop):
     """Calculates the error between real and guess in pressure drop through the plumbing system.
 
     Keyword arguments:
-    mass_flowrate   --  rate of flow of the fluid (kg/s)
-    temperature     --  temperature of the fluid (K)
-    bottle_pressure --  pressure in the bottle (Pa)
-    real_pressure_drop  --  the actual pressure drop through the plumbing system (Pa)
+    mass_flowrate       -- rate of flow of the fluid (kg/s)
+    temperature         -- temperature of the fluid (K)
+    bottle_pressure     -- pressure in the bottle (Pa)
+    real_pressure_drop  -- the actual pressure drop through the plumbing system (Pa)
     """
 
-    return calculate_total_pressure_drop(mass_flowrate, temperature, bottle_pressure) - real_pressure_drop
+    if mass_flowrate == 0:
+        return -real_pressure_drop
+
+    if not mass_flowrate > 0:
+        print(
+            f"mass_flowrate ERROR IN calculate_total_pressure_drop_error ({mass_flowrate})")
+        return real_pressure_drop
+
+    if not bottle_pressure > 0:
+        print(
+            f"bottle_pressure ERROR IN calculate_total_pressure_drop_error ({bottle_pressure})")
+        return real_pressure_drop
+
+    if not real_pressure_drop > 0:
+        print(
+            f"real_pressure_drop ERROR IN calculate_total_pressure_drop_error ({real_pressure_drop})")
+        return real_pressure_drop
+
+    estimate_pressure_drop = calculate_all_pressure_drops(
+        mass_flowrate, bottle_pressure)['total']
+
+    return estimate_pressure_drop - real_pressure_drop
 
 
-def calculate_incompressible_mass_flowrate(bottle_absolute_pressure, temperature, pipe_area):
+def calculate_incompressible_mass_flowrate(bottle_pressure):
     """Calculates the incompressible mass flowrate through the plumbing system.
 
     Keyword arguments:
-    bottle_absolute_pressure    --  the absolute pressure inside the bottle (Pa)
-    temperature          --  the temperature in the bottle (K)
-    pipe_area                   --  the area of the pipe (m^2)
+    bottle_pressure    -- the absolute pressure inside the bottle (Pa)
     """
 
-    real_pressure_drop = bottle_absolute_pressure - ATMOSPHERIC_PRESSURE
+    if not bottle_pressure > 0:
+        print(
+            f"bottle_absolute_pressure ERROR IN calculate_incompressible_mass_flowrate ({bottle_pressure})")
+        return 0
+
+    real_pressure_drop = bottle_pressure - ATMOSPHERIC_PRESSURE
 
     average_flow_pressure = (
-        bottle_absolute_pressure + ATMOSPHERIC_PRESSURE) / 2
+        bottle_pressure + ATMOSPHERIC_PRESSURE) / 2
 
     average_flow_density = CoolProp.CoolProp.PropsSI(
-        'D', 'T', temperature, 'P', average_flow_pressure, FLUID)
+        'D', 'T', TEMPERATURE, 'P', average_flow_pressure, FLUID)
 
     # Isentropic incompressible flow assumption
     isentropic_incompressible_flow_velocity = bernoulli_equation_exit_velocity(
-        bottle_absolute_pressure, 0, ATMOSPHERIC_PRESSURE, average_flow_density)
+        bottle_pressure, 0, ATMOSPHERIC_PRESSURE, average_flow_density)
 
     isentropic_incompressible_mass_flowrate = calculate_mass_flowrate_from_velocity(
-        isentropic_incompressible_flow_velocity, average_flow_density, pipe_area)
+        isentropic_incompressible_flow_velocity, average_flow_density)
 
     mass_flowrate_upper = isentropic_incompressible_mass_flowrate
     mass_flowrate_lower = 0
 
     if not mass_flowrate_upper > mass_flowrate_lower:
+        print(
+            f"mass_flowrate_upper, mass_flowrate_lower ERROR IN calculate_incompressible_mass_flowrate ({mass_flowrate_upper}, {mass_flowrate_lower})")
         return 0
 
     return scipy.optimize.bisect(
-        calculate_total_pressure_drop_error, mass_flowrate_lower, mass_flowrate_upper, args=(temperature, bottle_absolute_pressure, real_pressure_drop))
+        calculate_total_pressure_drop_error, mass_flowrate_lower, mass_flowrate_upper, args=(bottle_pressure, real_pressure_drop))
 
 
-def calculate_bottle_pressure(bottle_volume, bottle_mass, temperature):
+def calculate_bottle_pressure(bottle_mass):
     """Calculates the pressure inside the NOX bottle.
 
     Keyword arguments:
-    bottle_volume   --  the internal volume of the bottle (m^3)
-    bottle_mass     --  the current mass of fluid in the bottle (kg)
-    temperature     --  the temperature in the bottle (K)
+    bottle_mass -- the current mass of fluid in the bottle (kg)
     """
 
     if bottle_mass < 0:
+        print(
+            f"bottle_mass ERROR IN calculate_bottle_pressure ({bottle_mass})")
         return 0
-    density = bottle_mass / bottle_volume
-    return CoolProp.CoolProp.PropsSI(
-        'P', 'D', density, 'T', temperature, FLUID)
+
+    density = bottle_mass / BOTTLE_VOLUME
+
+    bottle_pressure = CoolProp.CoolProp.PropsSI(
+        'P', 'D', density, 'T', TEMPERATURE, FLUID)
+    return bottle_pressure
 
 
-def calculate_incompressible_mass_flowrate_from_mass(bottle_mass, bottle_volume, temperature, pipe_area):
+def calculate_incompressible_mass_flowrate_from_mass(bottle_mass):
     """Calculates the incompressible mass flowrate through the plumbing system.
 
     Keyword arguments:
-    bottle_mass                 --  the mass of fluid in the bottle (kg)
-    temperature                 --  the temperature in the bottle (K)
-    pipe_area                   --  the area of the pipe (m^2)
+    bottle_mass -- the mass of fluid in the bottle (kg)
     """
 
-    bottle_absolute_pressure = calculate_bottle_pressure(
-        bottle_volume, bottle_mass[0], temperature)
-    return calculate_incompressible_mass_flowrate(bottle_absolute_pressure, temperature, pipe_area)
+    bottle_absolute_pressure = calculate_bottle_pressure(bottle_mass[0])
+    return calculate_incompressible_mass_flowrate(bottle_absolute_pressure)
 
 
 def main():
-    # Surrounding atmospheric temperature (K)
-    ATMOSPHERIC_TEMPERATURE = convert_f_to_k(ATMOSPHERIC_TEMPERATURE_F)
-
-    # Mass of fluid in the bottle (kg)
-    INITIAL_BOTTLE_MASS = convert_lb_to_kg(INITIAL_BOTTLE_WEIGHT_LBF)
-
-    # Temperature inside the bottle (K)
-    BOTTLE_TEMPERATURE = ATMOSPHERIC_TEMPERATURE
-
-    # Gauge pressure inside the bottle (Pa)
-    INITIAL_BOTTLE_GAUGE_PRESSURE = convert_psi_to_pa(
-        INITIAL_BOTTLE_GAUGE_PRESSURE_PSI)
-
-    # Absolute pressure inside the bottle (Pa)
-    INITIAL_BOTTLE_ABSOLUTE_PRESSURE = convert_gauge_pressure_to_absolute(
-        INITIAL_BOTTLE_GAUGE_PRESSURE)
-
-    BOTTLE_VOLUME = INITIAL_BOTTLE_MASS / CoolProp.CoolProp.PropsSI(
-        'D', 'P', INITIAL_BOTTLE_ABSOLUTE_PRESSURE, 'T', BOTTLE_TEMPERATURE, FLUID)
-
-    # Cross-sectional area of the pipe (m^2)
-    PIPE_AREA = calculate_pipe_area(PIPE_INNER_DIAMETER)
-
-    print("The bottle phase is", CoolProp.CoolProp.PhaseSI('P', INITIAL_BOTTLE_ABSOLUTE_PRESSURE, 'T', BOTTLE_TEMPERATURE, FLUID),
-          "and the exit phase is", CoolProp.CoolProp.PhaseSI('P', ATMOSPHERIC_PRESSURE, 'T', ATMOSPHERIC_TEMPERATURE, FLUID))
+    print("The bottle phase is", CoolProp.CoolProp.PhaseSI('P', INITIAL_BOTTLE_PRESSURE, 'T', TEMPERATURE, FLUID),
+          "and the exit phase is", CoolProp.CoolProp.PhaseSI('P', ATMOSPHERIC_PRESSURE, 'T', TEMPERATURE, FLUID))
 
     average_flow_pressure = (
-        INITIAL_BOTTLE_ABSOLUTE_PRESSURE + ATMOSPHERIC_PRESSURE) / 2
-
-    average_flow_temperature = (
-        BOTTLE_TEMPERATURE + ATMOSPHERIC_TEMPERATURE) / 2
+        INITIAL_BOTTLE_PRESSURE + ATMOSPHERIC_PRESSURE) / 2
 
     average_flow_density = CoolProp.CoolProp.PropsSI(
-        'D', 'T', average_flow_temperature, 'P', average_flow_pressure, FLUID)
+        'D', 'T', TEMPERATURE, 'P', average_flow_pressure, FLUID)
 
     # Isentropic incompressible flow assumption
     isentropic_incompressible_flow_velocity = bernoulli_equation_exit_velocity(
-        INITIAL_BOTTLE_ABSOLUTE_PRESSURE, 0, ATMOSPHERIC_PRESSURE, average_flow_density)
+        INITIAL_BOTTLE_PRESSURE, 0, ATMOSPHERIC_PRESSURE, average_flow_density)
 
     isentropic_incompressible_mass_flowrate = calculate_mass_flowrate_from_velocity(
-        isentropic_incompressible_flow_velocity, average_flow_density, PIPE_AREA)
+        isentropic_incompressible_flow_velocity, average_flow_density)
 
     print("The isentropic incompressible flowrate is",
           round(convert_kg_per_s_to_lbm_per_s(isentropic_incompressible_mass_flowrate), 3), "lbm/s")
 
     # Incompressible flow assumption
     incompressible_mass_flowrate = calculate_incompressible_mass_flowrate(
-        INITIAL_BOTTLE_ABSOLUTE_PRESSURE, BOTTLE_TEMPERATURE, PIPE_AREA)
+        INITIAL_BOTTLE_PRESSURE)
 
-    incompressible_pressure_drop = calculate_total_pressure_drop(
-        incompressible_mass_flowrate, BOTTLE_TEMPERATURE, INITIAL_BOTTLE_ABSOLUTE_PRESSURE)
+    incompressible_pressure_drop = calculate_all_pressure_drops(
+        incompressible_mass_flowrate, INITIAL_BOTTLE_PRESSURE)['total']
 
     print("The incompressible flowrate is", round(
         convert_kg_per_s_to_lbm_per_s(incompressible_mass_flowrate), 3), "lbm/s")
     print("Pressure compare", round(incompressible_pressure_drop, 3) / (10 ** 3), "kPa to",
-          round(INITIAL_BOTTLE_ABSOLUTE_PRESSURE - ATMOSPHERIC_PRESSURE, 3) / (10 ** 3), "kPa")
+          round(INITIAL_BOTTLE_PRESSURE - ATMOSPHERIC_PRESSURE, 3) / (10 ** 3), "kPa")
 
     final_time = INITIAL_BOTTLE_MASS / incompressible_mass_flowrate * 2
     solution = scipy.integrate.solve_ivp(fun=lambda t, y: -calculate_incompressible_mass_flowrate_from_mass(
-        y, BOTTLE_VOLUME, BOTTLE_TEMPERATURE, PIPE_AREA), t_span=(0, final_time), y0=[INITIAL_BOTTLE_MASS], max_step=STEP_SIZE)
+        y, BOTTLE_VOLUME, PIPE_AREA), t_span=(0, final_time), y0=[INITIAL_BOTTLE_MASS], max_step=STEP_SIZE)
 
     bottle_mass_list = solution.y[0]
 
     y_bottle_mass = []
     y_bottle_pressure = []
-    for bottle_mass in bottle_mass_list:
-        y_bottle_mass.append(convert_kg_to_lbm(bottle_mass))
-        y_bottle_pressure.append(convert_pa_to_psi(convert_absolute_pressure_to_gauge(calculate_bottle_pressure(BOTTLE_VOLUME, bottle_mass, BOTTLE_TEMPERATURE))))
-
     y_mass_flowrate = []
+    y_ball_valve_pressure_drop = []
     i = 0
     while i < len(solution.y[0]):
         if i == 0:
-            y_mass_flowrate.append(convert_kg_to_lbm(-scipy.stats.linregress(x=solution.t[i:i+2], y=bottle_mass_list[i:i+2]).slope))
+            i_mass_flowrate = - \
+                scipy.stats.linregress(
+                    x=solution.t[i:i+2], y=bottle_mass_list[i:i+2]).slope
         elif i == (len(solution.y[0]) - 1):
-            y_mass_flowrate.append(convert_kg_to_lbm(-scipy.stats.linregress(x=solution.t[i-2:i], y=bottle_mass_list[i-2:i]).slope))
+            i_mass_flowrate = - \
+                scipy.stats.linregress(
+                    x=solution.t[i-2:i], y=bottle_mass_list[i-2:i]).slope
         else:
-            y_mass_flowrate.append(convert_kg_to_lbm(-scipy.stats.linregress(x=solution.t[i-1:i+1], y=bottle_mass_list[i-1:i+1]).slope))
+            i_mass_flowrate = - \
+                scipy.stats.linregress(
+                    x=solution.t[i-1:i+1], y=bottle_mass_list[i-1:i+1]).slope
+
+        y_mass_flowrate.append(convert_kg_to_lbm(i_mass_flowrate))
+
+        y_bottle_mass.append(convert_kg_to_lbm(bottle_mass_list[i]))
+        i_bottle_pressure = calculate_bottle_pressure(
+            BOTTLE_VOLUME, bottle_mass_list[i])
+        y_bottle_pressure.append(convert_pa_to_psi(
+            convert_absolute_pressure_to_gauge(i_bottle_pressure)))
+
+        all_pressure_drops = calculate_all_pressure_drops(
+            i_mass_flowrate, i_bottle_pressure)
+        y_ball_valve_pressure_drop.append(
+            convert_pa_to_psi(all_pressure_drops["ball valve"]))
 
         i = i + 1
 
-    df = pandas.DataFrame(data={'Time (s)': solution.t, 'Bottle Fluid Mass (lbm)': y_bottle_mass, 'Mass Flowrate (lbm/s)': y_mass_flowrate, 'Bottle Gauge Pressure (psi)': y_bottle_pressure})
+    df = pandas.DataFrame(data={'Time (s)': solution.t, 'Bottle Fluid Mass (lbm)': y_bottle_mass, 'Mass Flowrate (lbm/s)': y_mass_flowrate,
+                                'Bottle Gauge Pressure (psi)': y_bottle_pressure, 'Ball Valve Pressure Drop (psi)': y_ball_valve_pressure_drop})
     print(df)
 
     matplotlib.pyplot.figure()
@@ -432,6 +583,9 @@ def main():
 
     matplotlib.pyplot.figure()
     seaborn.lineplot(x='Time (s)', y='Bottle Gauge Pressure (psi)', data=df)
+
+    matplotlib.pyplot.figure()
+    seaborn.lineplot(x="Time (s)", y='Ball Valve Pressure Drop (psi)', data=df)
 
     matplotlib.pyplot.show()
 
