@@ -313,31 +313,31 @@ def calculate_all_pressure_drops(mass_flowrate, bottle_pressure):
         return {'total': 0, 'tank valve': 0, 'tee 1': 0, 'check valve': 0, 'tee 2': 0, 'ball valve': 0, 'tee 3': 0, 'exit': 0}
 
     tank_valve_pressure_drop = calculate_valve_pressure_drop(
-        mass_flowrate, bottle_pressure, TANK_VALVE_FLOW_COEFFICIENT)
+        mass_flowrate, abs(bottle_pressure), TANK_VALVE_FLOW_COEFFICIENT)
     tank_valve_pressure = bottle_pressure - tank_valve_pressure_drop
 
     tee_1_pressure_drop = calculate_pressure_drop_from_head_loss(
-        mass_flowrate, tank_valve_pressure if tank_valve_pressure > 0 else bottle_pressure, TEE_LOSS_COEFFICIENT)
+        mass_flowrate, abs(tank_valve_pressure), TEE_LOSS_COEFFICIENT)
     tee_1_pressure = tank_valve_pressure - tee_1_pressure_drop
 
     check_valve_pressure_drop = calculate_valve_pressure_drop(
-        mass_flowrate, tee_1_pressure if tee_1_pressure > 0 else bottle_pressure, CHECK_VALVE_FLOW_COEFFICIENT)
+        mass_flowrate, abs(tee_1_pressure), CHECK_VALVE_FLOW_COEFFICIENT)
     check_valve_pressure = tee_1_pressure_drop - check_valve_pressure_drop
 
     tee_2_pressure_drop = calculate_pressure_drop_from_head_loss(
-            mass_flowrate, check_valve_pressure if check_valve_pressure > 0 else bottle_pressure, TEE_LOSS_COEFFICIENT)
+            mass_flowrate, abs(check_valve_pressure), TEE_LOSS_COEFFICIENT)
     tee_2_pressure = check_valve_pressure - tee_2_pressure_drop
 
     ball_valve_pressure_drop = calculate_pressure_drop_from_head_loss(
-            mass_flowrate, tee_2_pressure if tee_2_pressure > 0 else bottle_pressure, BALL_VALVE_LOSS_COEFFICIENT)
+            mass_flowrate, abs(tee_2_pressure), BALL_VALVE_LOSS_COEFFICIENT)
     ball_valve_pressure = tee_2_pressure - ball_valve_pressure_drop
 
     tee_3_pressure_drop = calculate_pressure_drop_from_head_loss(
-            mass_flowrate, ball_valve_pressure if ball_valve_pressure > 0 else bottle_pressure, TEE_LOSS_COEFFICIENT)
+            mass_flowrate, abs(ball_valve_pressure), TEE_LOSS_COEFFICIENT)
     tee_3_pressure = ball_valve_pressure - tee_3_pressure_drop
 
     exit_pressure_drop = calculate_pressure_drop_from_head_loss(
-            mass_flowrate, tee_3_pressure if tee_3_pressure > 0 else bottle_pressure, EXIT_LOSS_COEFFICIENT)
+            mass_flowrate, abs(tee_3_pressure), EXIT_LOSS_COEFFICIENT)
     exit_pressure = tee_3_pressure - exit_pressure_drop
 
     total_pressure_drop = bottle_pressure - exit_pressure
@@ -374,7 +374,7 @@ def calculate_total_pressure_drop_error(mass_flowrate, bottle_pressure, real_pre
 
     return estimated_pressure_drop - real_pressure_drop
 
-'''
+
 def calculate_incompressible_mass_flowrate(bottle_pressure):
     """Calculates the incompressible mass flowrate in m^3/s through the plumbing system.
 
@@ -410,9 +410,11 @@ def calculate_incompressible_mass_flowrate(bottle_pressure):
             f"mass_flowrate_upper, mass_flowrate_lower ERROR IN calculate_incompressible_mass_flowrate ({mass_flowrate_upper}, {mass_flowrate_lower})")
         return 0
 
-    return scipy.optimize.bisect(
-        calculate_total_pressure_drop_error, mass_flowrate_lower, mass_flowrate_upper, args=(bottle_pressure, real_pressure_drop))
-
+    mass_flowrates = scipy.optimize.fsolve(
+        calculate_total_pressure_drop_error, x0 = mass_flowrate_upper / 2, args=(bottle_pressure, real_pressure_drop))
+    print(mass_flowrates)
+    return mass_flowrates
+'''
 def convert_pa_to_psi(pressure):
     """Converts pressure in pascals into pounds per square inch.
 
@@ -513,11 +515,9 @@ def main():
 
     matplotlib.pyplot.show()
 
-    return 0
-
     # Incompressible flow assumption
     incompressible_mass_flowrate = calculate_incompressible_mass_flowrate(
-        INITIAL_BOTTLE_PRESSURE)
+        INITIAL_BOTTLE_PRESSURE)[0]
 
     incompressible_pressure_drop = calculate_all_pressure_drops(
         incompressible_mass_flowrate, INITIAL_BOTTLE_PRESSURE)['total']
