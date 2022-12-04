@@ -318,7 +318,7 @@ def calculate_all_pressure_drops(mass_flowrate, bottle_pressure):
         return {'defined': defined, 'total': 0, 'tank valve': 0, 'tee 1': 0, 'check valve': 0, 'tee 2': 0, 'ball valve': 0, 'tee 3': 0, 'exit': 0}
 
     tank_valve_pressure_drop = calculate_valve_pressure_drop(
-        mass_flowrate, bottle_pressure, TANK_VALVE_FLOW_COEFFICIENT)
+        mass_flowrate, abs(bottle_pressure), TANK_VALVE_FLOW_COEFFICIENT)
     tank_valve_pressure = bottle_pressure - tank_valve_pressure_drop
 
     if not tank_valve_pressure > 0:
@@ -539,7 +539,7 @@ def main():
 
     # Incompressible flow assumption
     incompressible_mass_flowrate = calculate_incompressible_mass_flowrate(
-        INITIAL_BOTTLE_PRESSURE)
+        INITIAL_BOTTLE_PRESSURE)[0]
 
     incompressible_pressure_drop = calculate_all_pressure_drops(
         incompressible_mass_flowrate, INITIAL_BOTTLE_PRESSURE)['total']
