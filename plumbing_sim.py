@@ -8,8 +8,8 @@ import scipy.integrate
 import scipy.stats
 import seaborn
 
-STEP_SIZE = 1e-0  # Spacing in seconds of recorded measurements
-SEARCH_RESOLUTION = 1e-2  # Spacing in kg/s of mass flowrate estimation
+STEP_SIZE = 1e-1  # Spacing in seconds of recorded measurements
+SEARCH_RESOLUTION = 1e-3  # Spacing in kg/s of mass flowrate estimation
 
 FLUID = 'NITROUSOXIDE'
 
@@ -223,25 +223,30 @@ def calculate_flow_coefficient_pressure_drop(flow_coefficient, volume_flowrate, 
     return pressure_drop
 
 
-def calculate_valve_pressure_drop(mass_flowrate, pressure, flow_coefficient):
+def calculate_valve_pressure_drop(mass_flowrate, pressure, flow_coefficient, liquid):
     """Calculates the pressure drop in pascals in the fluid while traveling through the valve.
 
     Keyword arguments:
     mass_flowrate       -- rate of flow of the fluid (kg/s)
     pressure            -- pressure of the fluid before the valve (Pa)
     flow_coefficient    -- flow coefficient of the valve
+    liquid              -- is the valve attempting to draw only liquid phase
     """
 
     if not pressure > 0:
         print(f"pressure ERROR IN calculate_valve_pressure_drop ({pressure})")
         return 0
 
-    try:
-        density = CoolProp.CoolProp.PropsSI(
-            'D', 'T', TEMPERATURE, 'P', pressure, FLUID)
-    except:
+    if liquid:
         density = CoolProp.CoolProp.PropsSI(
             'D', 'T|liquid', TEMPERATURE, 'P', pressure, FLUID)
+    else:
+        try:
+            density = CoolProp.CoolProp.PropsSI(
+                'D', 'T', TEMPERATURE, 'P', pressure, FLUID)
+        except:
+            density = CoolProp.CoolProp.PropsSI(
+                'D', 'T|liquid', TEMPERATURE, 'P', pressure, FLUID)
 
     valve_volume_flowrate = calculate_volume_flowrate(
         mass_flowrate, density)
@@ -318,47 +323,47 @@ def calculate_all_pressure_drops(mass_flowrate, bottle_pressure):
         return {'defined': defined, 'total': 0, 'tank valve': 0, 'tee 1': 0, 'check valve': 0, 'tee 2': 0, 'ball valve': 0, 'tee 3': 0, 'exit': 0}
 
     tank_valve_pressure_drop = calculate_valve_pressure_drop(
-        mass_flowrate, abs(bottle_pressure), TANK_VALVE_FLOW_COEFFICIENT)
+        mass_flowrate, abs(bottle_pressure), TANK_VALVE_FLOW_COEFFICIENT, True)
     tank_valve_pressure = bottle_pressure - tank_valve_pressure_drop
 
     if not tank_valve_pressure > 0:
         defined = False
-        return {'defined': defined, 'total': 0, 'tank valve': tank_valve_pressure, 'tee 1': 0, 'check valve': 0, 'tee 2': 0, 'ball valve': 0, 'tee 3': 0, 'exit': 0}
+        return {'defined': defined, 'total': 0, 'tank valve': tank_valve_pressure_drop, 'tee 1': 0, 'check valve': 0, 'tee 2': 0, 'ball valve': 0, 'tee 3': 0, 'exit': 0}
     tee_1_pressure_drop = calculate_pressure_drop_from_head_loss(
         mass_flowrate, tank_valve_pressure, TEE_LOSS_COEFFICIENT)
     tee_1_pressure = tank_valve_pressure - tee_1_pressure_drop
 
     if not tee_1_pressure > 0:
         defined = False
-        return {'defined': defined, 'total': 0, 'tank valve': tank_valve_pressure, 'tee 1': tee_1_pressure, 'check valve': 0, 'tee 2': 0, 'ball valve': 0, 'tee 3': 0, 'exit': 0}
+        return {'defined': defined, 'total': 0, 'tank valve': tank_valve_pressure_drop, 'tee 1': tee_1_pressure_drop, 'check valve': 0, 'tee 2': 0, 'ball valve': 0, 'tee 3': 0, 'exit': 0}
     check_valve_pressure_drop = calculate_valve_pressure_drop(
-        mass_flowrate, tee_1_pressure, CHECK_VALVE_FLOW_COEFFICIENT)
+        mass_flowrate, tee_1_pressure, CHECK_VALVE_FLOW_COEFFICIENT, False)
     check_valve_pressure = tee_1_pressure - check_valve_pressure_drop
 
     if not check_valve_pressure > 0:
         defined = False
-        return {'defined': defined, 'total': 0, 'tank valve': tank_valve_pressure, 'tee 1': tee_1_pressure, 'check valve': check_valve_pressure, 'tee 2': 0, 'ball valve': 0, 'tee 3': 0, 'exit': 0}
+        return {'defined': defined, 'total': 0, 'tank valve': tank_valve_pressure_drop, 'tee 1': tee_1_pressure_drop, 'check valve': check_valve_pressure_drop, 'tee 2': 0, 'ball valve': 0, 'tee 3': 0, 'exit': 0}
     tee_2_pressure_drop = calculate_pressure_drop_from_head_loss(
         mass_flowrate, check_valve_pressure, TEE_LOSS_COEFFICIENT)
     tee_2_pressure = check_valve_pressure - tee_2_pressure_drop
 
     if not tee_2_pressure > 0:
         defined = False
-        return {'defined': defined, 'total': 0, 'tank valve': tank_valve_pressure, 'tee 1': tee_1_pressure, 'check valve': check_valve_pressure, 'tee 2': tee_2_pressure, 'ball valve': 0, 'tee 3': 0, 'exit': 0}
+        return {'defined': defined, 'total': 0, 'tank valve': tank_valve_pressure_drop, 'tee 1': tee_1_pressure_drop, 'check valve': check_valve_pressure_drop, 'tee 2': tee_2_pressure_drop, 'ball valve': 0, 'tee 3': 0, 'exit': 0}
     ball_valve_pressure_drop = calculate_pressure_drop_from_head_loss(
         mass_flowrate, tee_2_pressure, BALL_VALVE_LOSS_COEFFICIENT)
     ball_valve_pressure = tee_2_pressure - ball_valve_pressure_drop
 
     if not ball_valve_pressure > 0:
         defined = False
-        return {'defined': defined, 'total': 0, 'tank valve': tank_valve_pressure, 'tee 1': tee_1_pressure, 'check valve': check_valve_pressure, 'tee 2': tee_2_pressure, 'ball valve': ball_valve_pressure, 'tee 3': 0, 'exit': 0}
+        return {'defined': defined, 'total': 0, 'tank valve': tank_valve_pressure_drop, 'tee 1': tee_1_pressure_drop, 'check valve': check_valve_pressure_drop, 'tee 2': tee_2_pressure_drop, 'ball valve': ball_valve_pressure_drop, 'tee 3': 0, 'exit': 0}
     tee_3_pressure_drop = calculate_pressure_drop_from_head_loss(
         mass_flowrate, ball_valve_pressure, TEE_LOSS_COEFFICIENT)
     tee_3_pressure = ball_valve_pressure - tee_3_pressure_drop
 
     if not tee_3_pressure > 0:
         defined = False
-        return {'defined': defined, 'total': 0, 'tank valve': tank_valve_pressure, 'tee 1': tee_1_pressure, 'check valve': check_valve_pressure, 'tee 2': tee_2_pressure, 'ball valve': ball_valve_pressure, 'tee 3': tee_3_pressure, 'exit': 0}
+        return {'defined': defined, 'total': 0, 'tank valve': tank_valve_pressure_drop, 'tee 1': tee_1_pressure_drop, 'check valve': check_valve_pressure_drop, 'tee 2': tee_2_pressure_drop, 'ball valve': ball_valve_pressure_drop, 'tee 3': tee_3_pressure_drop, 'exit': 0}
     exit_pressure_drop = calculate_pressure_drop_from_head_loss(
         mass_flowrate, tee_3_pressure, EXIT_LOSS_COEFFICIENT)
     exit_pressure = tee_3_pressure - exit_pressure_drop
@@ -539,7 +544,7 @@ def main():
 
     # Incompressible flow assumption
     incompressible_mass_flowrate = calculate_incompressible_mass_flowrate(
-        INITIAL_BOTTLE_PRESSURE)[0]
+        INITIAL_BOTTLE_PRESSURE)
 
     incompressible_pressure_drop = calculate_all_pressure_drops(
         incompressible_mass_flowrate, INITIAL_BOTTLE_PRESSURE)['total']
@@ -561,6 +566,7 @@ def main():
     y_bottle_pressure = []
     y_mass_flowrate = []
     y_ball_valve_pressure_drop = []
+    y_bottle_valve_pressure_drop = []
     i = 0
     while i < len(solution.y[0]):
         i_mass_flowrate = calculate_incompressible_mass_flowrate_from_mass([
@@ -577,11 +583,13 @@ def main():
             i_mass_flowrate, i_bottle_pressure)
         y_ball_valve_pressure_drop.append(
             convert_pa_to_psi(all_pressure_drops["ball valve"]))
+        y_bottle_valve_pressure_drop.append(
+            convert_pa_to_psi(all_pressure_drops['tank valve']))
 
         i = i + 1
 
     df = pandas.DataFrame(data={'Time (s)': solution.t, 'Bottle Fluid Mass (lbm)': y_bottle_mass, 'Mass Flowrate (lbm/s)': y_mass_flowrate,
-                                'Bottle Gauge Pressure (psi)': y_bottle_pressure, 'Ball Valve Pressure Drop (psi)': y_ball_valve_pressure_drop})
+                                'Bottle Gauge Pressure (psi)': y_bottle_pressure, 'Ball Valve Pressure Drop (psi)': y_ball_valve_pressure_drop, 'Bottle Valve Pressure Drop (psi)': y_bottle_valve_pressure_drop})
     print(df)
     df.to_excel("output.xlsx")
 
@@ -596,6 +604,10 @@ def main():
 
     matplotlib.pyplot.figure()
     seaborn.lineplot(x="Time (s)", y='Ball Valve Pressure Drop (psi)', data=df)
+
+    matplotlib.pyplot.figure()
+    seaborn.lineplot(
+        x="Time (s)", y='Bottle Valve Pressure Drop (psi)', data=df)
 
     matplotlib.pyplot.show()
 
