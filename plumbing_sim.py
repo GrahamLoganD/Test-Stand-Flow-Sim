@@ -17,7 +17,7 @@ INITIAL_BOTTLE_WEIGHT_LBF = 10  # Weight of fluid in the bottle (lbf)
 INITIAL_BOTTLE_GAUGE_PRESSURE_PSI = 650  # Pressure inside the bottle (psig)
 
 ATMOSPHERIC_PRESSURE = 103081.67  # Surrounding atmospheric pressure (Pa)
-ATMOSPHERIC_TEMPERATURE_F = 38  # Surrounding atmospheric temperature (F)
+ATMOSPHERIC_TEMPERATURE_F = 35  # Surrounding atmospheric temperature (F)
 
 PIPE_INNER_DIAMETER = 0.00707  # Inner diamater of the pipe (m)
 
@@ -25,10 +25,12 @@ PIPE_INNER_DIAMETER = 0.00707  # Inner diamater of the pipe (m)
 # https://catalog.circlevalve.com/item/check-valves/200-series-check-valves-0-to-3000-psig/cs-259a-1pp
 TANK_VALVE_FLOW_COEFFICIENT = 0.41
 CHECK_VALVE_FLOW_COEFFICIENT = 1.6
+BALL_VALVE_FLOW_COEFFICIENT = 1.5  # Fully open
+# BALL_VALVE_FLOW_COEFFICIENT = 0.16 # 50% open
 
 # Loss coefficients
 TEE_LOSS_COEFFICIENT = 0.9  # Line flow, threaded
-BALL_VALVE_LOSS_COEFFICIENT = 0.05  # Fully open
+# BALL_VALVE_LOSS_COEFFICIENT = 0.05  # Fully open
 EXIT_LOSS_COEFFICIENT = 1
 
 
@@ -350,8 +352,8 @@ def calculate_all_pressure_drops(mass_flowrate, bottle_pressure):
     if not tee_2_pressure > 0:
         defined = False
         return {'defined': defined, 'total': 0, 'tank valve': tank_valve_pressure_drop, 'tee 1': tee_1_pressure_drop, 'check valve': check_valve_pressure_drop, 'tee 2': tee_2_pressure_drop, 'ball valve': 0, 'tee 3': 0, 'exit': 0}
-    ball_valve_pressure_drop = calculate_pressure_drop_from_head_loss(
-        mass_flowrate, tee_2_pressure, BALL_VALVE_LOSS_COEFFICIENT)
+    ball_valve_pressure_drop = calculate_valve_pressure_drop(
+        mass_flowrate, tee_2_pressure, BALL_VALVE_FLOW_COEFFICIENT, False)
     ball_valve_pressure = tee_2_pressure - ball_valve_pressure_drop
 
     if not ball_valve_pressure > 0:
